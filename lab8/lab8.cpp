@@ -18,6 +18,11 @@ void LoadTex(Texture& tex, string filename) {
     }
 }
 
+Vector2f GetTextSize(Text text) {
+    FloatRect r = text.getGlobalBounds();
+    return Vector2f(r.width, r.height);
+}
+
 void MoveCrossbow(PhysicsSprite& crossbow, int elapsedMS) {
     if (Keyboard::isKeyPressed(Keyboard::Right)) {
         Vector2f newPos(crossbow.getCenter());
@@ -33,7 +38,7 @@ void MoveCrossbow(PhysicsSprite& crossbow, int elapsedMS) {
 
 int main()
 {
-    RenderWindow window(VideoMode(800, 600), "Balloon Buster");
+    RenderWindow window(VideoMode(800, 600), "Duck Shooter");
     World world(Vector2f(0, 0));
     int score(0);
     int arrows(5);
@@ -58,41 +63,9 @@ int main()
     top.setStatic(true);
     world.AddPhysicsBody(top);
 
-    PhysicsRectangle left;
-    left.setSize(Vector2f(10, 600));
-    left.setCenter(Vector2f(5, 300));
-    left.setStatic(true);
-    world.AddPhysicsBody(left);
-
-    PhysicsRectangle right;
-    right.setSize(Vector2f(10, 600));
-    right.setCenter(Vector2f(795, 300));
-    right.setStatic(true);
-    world.AddPhysicsBody(right);
-
-    Texture redTex;
-    LoadTex(redTex, "images/duck.png");
-    PhysicsShapeList<PhysicsSprite> balloons;
-    for (int i(0); i < 6; i++) {
-        PhysicsSprite& balloon = balloons.Create();
-        balloon.setTexture(redTex);
-        int x = 50 + ((700 / 5) * i);
-        Vector2f sz = balloon.getSize();
-        balloon.setCenter(Vector2f(x, 20 + (sz.y / 2)));
-        balloon.setVelocity(Vector2f(0.25, 0));
-        world.AddPhysicsBody(balloon);
-        balloon.onCollision =
-            [&drawingArrow, &world, &arrow, &balloon, &balloons, &score]
-            (PhysicsBodyCollisionResult result) {
-            if (result.object2 == arrow) {
-                drawingArrow = false;
-                world.RemovePhysicsBody(arrow);
-                world.RemovePhysicsBody(balloon);
-                balloons.QueueRemove(balloon);
-                score += 10;
-            }
-            };
-    }
+    Texture duckTex;
+    LoadTex(duckTex, "images/duck.png");
+    PhysicsShapeList<PhysicsSprite> ducks;
 
     top.onCollision = [&drawingArrow, &world, &arrow]
     (PhysicsBodyCollisionResult result) {
@@ -114,6 +87,9 @@ int main()
     Time lastTime(clock.getElapsedTime());
     Time currentTime(lastTime);
 
+    Clock duckCreationClock;
+    Time duckCreationInterval = milliseconds(500);
+
     while ((arrows > 0) || drawingArrow) {
         currentTime = clock.getElapsedTime();
         Time deltaTime = currentTime - lastTime;
@@ -121,6 +97,27 @@ int main()
         if (deltaMS > 9) {
             lastTime = currentTime;
             world.UpdatePhysics(deltaMS);
+
+            Time elapsedTime = duckCreationClock.getElapsedTime();
+            if (elapsedTime >= duckCreationInterval) {
+                duckCreationClock.restart();
+
+                PhysicsSprite& duck = ducks.Create();
+                duck.setTexture(duckTex);
+                duck.setCenter(Vector2f(-0, 20 + (duck.getSize().y / 2)));
+                duck.setVelocity(Vector2f(0.50, 0));
+                world.AddPhysicsBody(duck);
+                duck.onCollision = [&drawingArrow, &world, &arrow, &duck, &ducks, &score](PhysicsBodyCollisionResult result) {
+                    if (result.object2 == arrow) {
+                        drawingArrow = false;
+                        world.RemovePhysicsBody(arrow);
+                        world.RemovePhysicsBody(duck);
+                        ducks.QueueRemove(duck);
+                        score += 10;
+                    }
+                    };
+            }
+
             MoveCrossbow(crossBow, deltaMS);
             if (Keyboard::isKeyPressed(Keyboard::Space) &&
                 !drawingArrow) {
@@ -135,8 +132,8 @@ int main()
             if (drawingArrow) {
                 window.draw(arrow);
             }
-            for (PhysicsShape& balloon : balloons) {
-                window.draw((PhysicsSprite&)balloon);
+            for (PhysicsShape& duck : ducks) {
+                window.draw((PhysicsSprite&)duck);
             }
             window.draw(crossBow);
             scoreText.setString(to_string(score));
@@ -152,7 +149,7 @@ int main()
             //world.VisualizeAllBounds(window);
 
             window.display();
-            balloons.DoRemovals();
+            ducks.DoRemovals();
         }
     }
     Text gameOverText;
@@ -166,6 +163,16 @@ int main()
     window.draw(gameOverText);
     window.display();
     while (true);
+
+    bool leave(true);
+    do {
+        if (Keyboard::isKeyPressed(Keyboard::Space)) 
+        {
+            leave = false;
+            }
+    } 
+
+    while (leave);
 }
 
 
